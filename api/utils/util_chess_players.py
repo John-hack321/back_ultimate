@@ -1,4 +1,3 @@
-import fastapi
 from sqlalchemy.ext.asyncio import AsyncSession 
 from sqlalchemy.future import select
 from sqlalchemy.orm import query
@@ -31,5 +30,15 @@ async def add_new_chess_player(db: AsyncSession, user_chess_data: dict, user_id:
 
 async def get_user_by_chess_foreign_username(db: AsyncSession, username: str):
     query = select(ChessProfile).where(ChessProfile.username == username) 
+    print('the database query was ran successful')
     result = await db.execute(query)
-    return result.scalar_one_or_none()
+    print('result returned successfuly')
+    result = result.scalars().first()
+    print(f'object returned : {result}')
+    return result
+
+"""
+but this is a chance to show them that i can do and be alot in the most powerful way to ever exist ama 
+its my time to show what im capable of , and i kinda have like 2 years to do that.
+okay hii kitu ya kamama ndio inanipea stress kidogo. but i need to find a way around it.
+"""
