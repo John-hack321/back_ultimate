@@ -1,6 +1,8 @@
 from datetime import timedelta , datetime , timezone
 from typing import Annotated
 import os
+from aiohttp.web import HTTPExpectationFailed
+from requests import status_codes
 from typing_extensions import runtime
 
 from fastapi import Depends , HTTPException , status , APIRouter
@@ -70,7 +72,7 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
     if db_user:
         raise HTTPException( status_code = status.HTTP_409_CONFLICT , detail = "email is already registered")
     # fech user data to confirm validility of the account on chess.com
-    if user.chess_username :
+    if user.chessDotComUsername :
         try : 
             chess_service_instance = ChessPlayerService(user.chess_username)
             user_chess_data = await chess_service_instance.fetch_user_profile_data() # error handing for the response is already done in the chessprofileservice itself 
@@ -78,21 +80,28 @@ async def add_user( db : db_dependancy , user : UserCreateRequest):
         except Exception as e:
             logger.error(f'the chessprofile service failed {e}')
             raise RuntimeError(f'the chess service failed')
+        #on successful fetch of the chess user data i belive its not time to create populate the database with relevant data for the users using their chess.com username as their username
+        new_db_user = await create_user(db , user)
+        if not new_db_user:
+            raise RuntimeError(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"failed to create a new user database object")
+        new_db_chess_profile_foreign = await add_new_chess_player(user_chess_data)
+        if not new_db_chess_profile_foreign :
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"failed to create a chess.com profile on database")
+        print("user and related object created successfuly")
+        token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes=20))
+        return {'access_token' : token , 'token_type' : 'bearer' }
+
     else :
         print(f'no chess username was provided thus no need to add fetch chess user data')
+        # create a new user profile in the database using the non_chess.com username
+        new_db_user = await create_user(db , user)
+        if not new_db_user:
+            raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"failed to create a chess profile for the normal non chess.com username")
+        # by this point the native profile will have been created in the create user utility function 
+        # and thus the only thing left i think will be return the access token 
+        token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
+        return {'access_token' : token , 'token_type' : 'bearer'}
         
-    new_db_user = await create_user( db  , user)
-    # after creating a new user we then create a new chess.com profile data
-    # to differentiate between chess.com and native chess data we will use foreign and native keywords
-    new_db_chess_profile_foreign = await add_new_chess_player(user_chess_data) # antherw way to do this would have been to create the chess user directly from the util side but its still okay here
-    if not new_db_chess_profile_foreign :
-        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f"there was an error creating new chess profile database object : {new_db_chess_profile_foreign}")
-    print("user created successfuly")
-    # okay im being told here that after create ing the new user we are supposed to return the access token so that the user gets logged in immediately 
-    token = await create_access_token(new_db_user.username , new_db_user.id , timedelta(minutes = 20))
-    return {'access_token' : token , 'token_type' : 'bearer' }
-    # return new_db_user we ctherefor obstruc this since we are not returning it to the backend 
-
 # lets create another endpoint for getting the access token and sedning it back to the user
 @router.post('/token' , response_model = Token , status_code = status.HTTP_201_CREATED)
 async def login_for_access_token( 

@@ -5,14 +5,14 @@ from typing import Optional
 
 # defining the user model in fastapi for effective user management
 class UserBase(BaseModel): # this is the base model and its for the general user user defintion 
-    username : str
     email : str
     phone : str
 
 class UserCreateRequest(UserBase): # this is for use in creating users 
-    # for this one we would need user entered data such as username , email , phone , password 
+    # for this one we would need user entered data such as username , email , phone , password  
+    username : Optional[str] = None
     password : str
-    chess_username : Optional[str] = None
+    chessDotComUsername : Optional[str] = None
 
 class UserResponse(UserBase): # this is the general model for response models to the frontend i guess 
     created_at : datetime

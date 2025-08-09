@@ -5,14 +5,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from db.models.model_native_chess_user import NativeChessProfile
 from pydantic_schemas.users_schema import UserCreateRequest
 from db.models.model_users import Account, User
 from api.utils.dependancies import bcrypt_context
 
-
+# async def create_user_using_foreign_usernmae(db : AsyncSession , user " UserCreateRequest):
+     # lets leave this blank for now 
 
 async def create_user(db : AsyncSession , user : UserCreateRequest):
-    db_user = User(
+    if user.chessDotComUsername: # lets use this to ensure no there are not issues with the payload from the frontend
+        db_user = User(
+        username = user.chessDotComUsername,
+        email = user.email,
+        phone = user.phone,
+        hashed_password = bcrypt_context.hash(user.password)
+    )
+    else :
+        db_user = User(
         username = user.username,
         email = user.email,
         phone = user.phone,
@@ -28,11 +38,18 @@ async def create_user(db : AsyncSession , user : UserCreateRequest):
     )
 
     db.add(user_account_db)
+
+    user_native_profile_db = NativeChessProfile(
+        user_id = db_user.id,
+    )
+
+    db.add(user_native_profile_db)
     
     await db.commit()
     await db.refresh(db_user)
     await db.refresh(user_account_db)
-    print("user and account created succesfully")
+    await db.refresh(user_native_profile_db)
+    print("user , account and native chess profile created succesfully")
     return db_user
 
 async def get_user_by_id(db : AsyncSession , user_id : int):

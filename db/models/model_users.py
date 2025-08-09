@@ -1,3 +1,4 @@
+from collections import UserList
 from collections.abc import Collection
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey , Text
@@ -5,7 +6,7 @@ from sqlalchemy import Column , String , Integer , Enum , Boolean , ForeignKey ,
 from db.db_setup import Base
 from db.models.mixins import TimeStamp
 from pydantic_schemas.transaction_schemas import trans_type , trans_status
-from db.models.model_chess_users import ChessProfile
+from db.models.model_foreign_chess_user import ChessProfile
 
 # user based models go here 
 
@@ -21,6 +22,8 @@ class User( TimeStamp , Base): # this base here is the declarative instance obje
     account = relationship("Account" , uselist = False ,back_populates = "user")
     transactions = relationship("Transaction" , back_populates = "user")
     chess_profile = relationship('ChessProfile' , back_populates='user')
+    native_games = relationship('NativeGames' , back_populates = "user")
+    native_chess_profile = relationship('NativeChessProfile' , uselist = False , back_populates = 'user')
 
 # account based models go here
 

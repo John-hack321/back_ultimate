@@ -1,10 +1,12 @@
+from fastapi import HTTPException , status
 from sqlalchemy.ext.asyncio import AsyncSession 
 from sqlalchemy.future import select
 from sqlalchemy.orm import query
 
 from db.db_setup import Base
-from db.models.model_chess_users import ChessProfile
+from db.models.model_foreign_chess_user import ChessProfile
 from pydantic_schemas.chess_player_schemas import CreateChessDbProfile , account_status_code
+from api.utils.util_native_chess_players import get_native_profile_by_user_id
 
 async def add_new_chess_player(db: AsyncSession, user_chess_data: dict, user_id: int):
     """
@@ -23,8 +25,20 @@ async def add_new_chess_player(db: AsyncSession, user_chess_data: dict, user_id:
     )
     
     db.add(new_chess_data)
+    
+    # after crating the object in the database we will want to update nativechessprofile with the relevant foreingchess id
+    await db.flush()
+
+    db_native_profile = await get_native_profile_by_user_id(db , new_chess_data.user_id)
+    if not db_native_profile:
+        raise HTTPException(status_code = status.HTTP_500_INTERNAL_SERVER_ERROR , detail = f'falied to get native profile object for update')
+    #update the foreign_chess_id
+    db_native_profile.foreign_chess_id = new_chess_data.id
+
+
     await db.commit()
     await db.refresh(new_chess_data)
+    await db.refresh(db_native_profile)
     return new_chess_data
 
 
