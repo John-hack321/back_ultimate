@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import ENUM
 
 
 # revision identifiers, used by Alembic.
@@ -20,7 +21,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Create enums with error handling
+    
+    # Create enums first using raw SQL with proper error handling
     op.execute("""
     DO $$
     BEGIN
@@ -34,13 +36,16 @@ def upgrade() -> None:
             CREATE TYPE game_verdict AS ENUM ('0', '1', '2', '3', '4');
         END IF;
     EXCEPTION WHEN OTHERS THEN
-        -- If anything goes wrong, just continue
         RAISE NOTICE 'Error creating enums: %', SQLERRM;
     END
     $$;
     """)
     
-    # Create native_chess_profile table if it doesn't exist
+    # Create the enum objects for SQLAlchemy (but don't auto-create them)
+    country_code_enum = ENUM('KE', name='country_code', create_type=False)
+    game_verdict_enum = ENUM('0', '1', '2', '3', '4', name='game_verdict', create_type=False)
+    
+    # Create native_chess_profile table
     op.create_table(
         'native_chess_profile',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -49,15 +54,15 @@ def upgrade() -> None:
         sa.Column('rating', sa.Integer(), server_default='0', nullable=False),
         sa.Column('wins', sa.Integer(), server_default='0', nullable=False),
         sa.Column('loses', sa.Integer(), server_default='0', nullable=False),
-        sa.Column('country', sa.Enum('KE', name='country_code'), server_default='KE', nullable=False),
+        sa.Column('country', country_code_enum, server_default='KE', nullable=False),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), onupdate=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
         sa.ForeignKeyConstraint(['foreign_chess_id'], ['chess_profile_table.id'], ),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Create native_games table if it doesn't exist
+    # Create native_games table
     op.create_table(
         'native_games',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -65,12 +70,12 @@ def upgrade() -> None:
         sa.Column('user_id', sa.Integer(), nullable=False),
         sa.Column('played_as', sa.String(), nullable=False),
         sa.Column('opponent', sa.String(), nullable=False),
-        sa.Column('verdict', sa.Enum('0', '1', '2', '3', '4', name='game_verdict'), nullable=False),
+        sa.Column('verdict', game_verdict_enum, nullable=False),
         sa.Column('date', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('start_time', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('end_time', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), onupdate=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
         sa.ForeignKeyConstraint(['native_chess_profile_id'], ['native_chess_profile.id'], ),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('id')
