@@ -5,10 +5,13 @@ from fastapi.middleware.cors import  CORSMiddleware
 from db.db_setup import Base , engine
 from db.db_setup import create_database , drop_database
 from api import  api_auth , api_users , api_transactions , api_chess_foreign
+from sockets.connection_manager import sio_app
 
 app = FastAPI(
     # we will add system info here for later on 
 )
+
+app.mount('/sockets' , app = sio_app)
 
 # we dont need this anymore alembic will handle the creations 
 """
