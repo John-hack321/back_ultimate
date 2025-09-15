@@ -12,7 +12,6 @@ from jose import jwt
 from starlette.status import HTTP_400_BAD_REQUEST
 import logging
 
-from api.utils.dependancies import bcrypt_context
 from dotenv import load_dotenv
 from api.utils.dependancies import ALGORITHM, SECRET_KEY, bcrypt_context , db_dependancy , refresh_user_dependancy
 from db.models.model_users import User
@@ -109,7 +108,8 @@ async def login_for_access_token(
     db : db_dependancy ):
     user = await authenticate_user(form_data.username , form_data.password , db )
     if not user:
-        raise HTTPException( status_code =status.HTTP_401_UNAUTHORIZED , detail = " could not authorize the user ")
+        raise HTTPException( status_code =status.HTTP_401_UNAUTHORIZED , detail = " could not authorize the user , the dtails that you have entered are not correct check details please  ")
+        raise RuntimeError( status_code=status.HTTP_401_UNAUTHORIZED , detail = 'the dtails that you have entered are not correct check details please ')
     access_token = await create_access_token(user.username , user.id , timedelta(minutes = 20))
     refresh_token = await create_refresh_token(user.username , user.id , timedelta(minutes=10080))
     return {
